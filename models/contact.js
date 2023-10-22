@@ -1,10 +1,9 @@
-
-const {handleMongooseModel } = require("../helpers")
-const { Schema, model } = require("mongoose")
+const { handleMongooseModel } = require("../helpers");
+const { Schema, model } = require("mongoose");
 const contactSchema = new Schema({
   name: {
     type: String,
-    required: [true, 'Set name for contact'],
+    required: [true, "Set name for contact"],
   },
   email: {
     type: String,
@@ -16,8 +15,13 @@ const contactSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: "user",
+    required: true,
+  },
 });
-contactSchema.post("save",handleMongooseModel )
+contactSchema.post("save", handleMongooseModel);
 
-const Contact = model("contact", contactSchema)
+const Contact = model("contact", contactSchema);
 module.exports = Contact;
