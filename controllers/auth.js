@@ -1,9 +1,12 @@
 const { User } = require("../models/user");
 const bcryptjs = require("bcrypt");
 const { cntrlWrapper, HttpError } = require("../helpers");
+const { sendEmail } = require("../helpers");
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const path = require("path");
+const { nanoid } = require("nanoid");
+const { BASE_URL } = process.env;
 const fs = require("fs/promises");
 const avatarsDir = path.join(__dirname, "../", "public", "avatars");
 
@@ -15,15 +18,52 @@ const register = async (req, res) => {
   }
   const hashPassword = await bcryptjs.hash(password, 10);
   const avatarURL = gravatar.url(email, { s: "200" });
+  const verificationToken = nanoid();
 
   const newUser = await User.create({
     ...req.body,
     password: hashPassword,
     avatarURL,
+    verificationToken,
   });
+  const verifyEmail = {
+    to: email,
+    subject: "Verify ",
+    html: `<a target="_blank" href="${BASE_URL}/api/auth/verify/${verificationToken}" >Click verify email</a>`,
+  };
+  await sendEmail(verifyEmail);
+
   res.status(201).json({
     name: newUser.name,
     email: newUser.email,
+  });
+};
+const verifyEmail = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+  if (!user) {
+    throw HttpError(404, "verification token not found");
+  }
+  await User.findByIdAndUpdate(user._id, { verify: true });
+  res.json({
+    message: "verification success",
+  });
+};
+const resendVerifyEmail = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw HttpError(404, "email not found");
+  }
+
+  const verifyEmail = {
+    to: email,
+    subject: "Verify ",
+    html: `<a target="_blank" href="${BASE_URL}/api/auth/verify/${user.verificationToken}" >Click verify email</a>`,
+  };
+  await sendEmail(verifyEmail);
+  res.json({
+    message: "verification success",
   });
 };
 const login = async (req, res) => {
@@ -76,4 +116,6 @@ module.exports = {
   getCurrent: cntrlWrapper(getCurrent),
   logout: cntrlWrapper(logout),
   updateAvatar: cntrlWrapper(updateAvatar),
+  verifyEmail: cntrlWrapper(verifyEmail),
+  resendVerifyEmail: cntrlWrapper(resendVerifyEmail),
 };
